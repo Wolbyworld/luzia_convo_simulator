@@ -438,9 +438,12 @@
                 </div>
             </div>
             <textarea id="csvInput" placeholder="timestamp,role,message&#10;2024-02-06 09:30,user,Hello Luzia!&#10;2024-02-06 09:30,luzia,Hi! How can I help you?"></textarea>
-            <div id="controls">
-                <button id="parseBtn">Parse CSV</button>
-                <button id="replayBtn">Replay</button>
+            <div id="controls" style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; border: 1px solid #ddd; padding: 4px; border-radius: 6px;">
+                    <button id="parseBtn">Parse CSV</button>
+                    <div style="width: 1px; height: 24px; background: #ddd; margin: 0 8px;"></div>
+                    <button id="replayBtn">Replay</button>
+                </div>
                 <button id="screenshotBtn">Screenshot</button>
             </div>
             <p><em>Paste your CSV above, then click "Parse." Then "Replay" to animate. Finally, use "Export Screenshot" or "Export GIF."</em></p>
@@ -530,19 +533,33 @@
   const resetIcon      = document.getElementById('resetIcon');
   const defaultIconSrc = 'icon.jpg';
 
-  // 1) Parse CSV
+  // 1) Parse CSV and show messages
   parseBtn.addEventListener('click', () => {
     const csvText = csvInput.value.trim();
     if (!csvText) {
       alert("Please paste a valid CSV with 'timestamp,role,message' columns!");
       return;
     }
+    
     Papa.parse(csvText, {
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
         conversationData = results.data;
-        alert(`Parsed ${conversationData.length} rows.`);
+        
+        // Clear existing chat
+        clearChat();
+        
+        // Add all messages immediately
+        conversationData.forEach(msgData => {
+          const bubble = createMessageBubble(msgData);
+          chatBody.appendChild(bubble);
+        });
+        
+        // Scroll to bottom
+        chatBody.scrollTop = chatBody.scrollHeight;
+        
+        alert(`Parsed and displayed ${conversationData.length} messages.`);
       },
       error: function(err) {
         alert("Error parsing CSV: " + err);
@@ -596,6 +613,9 @@
 
   // 2) Replay conversation
   replayBtn.addEventListener('click', async () => {
+    // Clear existing chat
+    clearChat();
+    
     // Auto-parse if no conversation data exists
     if (!conversationData.length) {
       const csvText = csvInput.value.trim();
@@ -625,10 +645,8 @@
         return;
       }
     }
-
-    // Clear and replay the conversation
-    clearChat();
     
+    // Animate the conversation
     for (let i = 0; i < conversationData.length; i++) {
       const bubble = createMessageBubble(conversationData[i]);
       chatBody.appendChild(bubble);
@@ -639,6 +657,41 @@
 
   // 3) Export screenshot
   screenshotBtn.addEventListener('click', async () => {
+    // Auto-parse if no conversation data exists
+    if (!conversationData.length) {
+      const csvText = csvInput.value.trim();
+      if (!csvText) {
+        alert("Please paste a valid CSV with 'timestamp,role,message' columns!");
+        return;
+      }
+      
+      // Parse the CSV
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          conversationData = results.data;
+          // Display all messages immediately
+          clearChat();
+          conversationData.forEach(msgData => {
+            const bubble = createMessageBubble(msgData);
+            chatBody.appendChild(bubble);
+          });
+          chatBody.scrollTop = chatBody.scrollHeight;
+          // Continue with screenshot
+          takeScreenshot();
+        },
+        error: function(err) {
+          alert("Error parsing CSV: " + err);
+        }
+      });
+    } else {
+      takeScreenshot();
+    }
+  });
+
+  // Helper function for taking screenshot
+  async function takeScreenshot() {
     if (!phoneElement) {
       alert("Phone simulator not found!");
       return;
@@ -669,7 +722,7 @@
       console.error('Screenshot failed:', error);
       alert('Failed to create screenshot: ' + error.message);
     }
-  });
+  }
 
   // 4) Export GIF
   function updateAvatarImages(newSrc) {
